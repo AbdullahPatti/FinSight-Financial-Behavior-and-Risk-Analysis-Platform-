@@ -4,7 +4,6 @@
 
 > **National University of Computer and Emerging Sciences**
 > Department of Computer Science, Lahore
-> Software Engineering and Artificial Intelligence
 
 | Name | Roll No. |
 |---|---|
