@@ -4,13 +4,24 @@ import pandas as pd
 import os
 
 def bulk_insert_transactions(db: Session):
-    if not os.path.exists("NovaTech_HMM.csv"):
+    if not os.path.exists("temp_hmm.csv"):
         return False
-    df = pd.read_csv("NovaTech_HMM.csv")
+    df = pd.read_csv("temp_hmm.csv")
+    
+    new_count = 0
+    skipped_count = 0
     
     for _, row in df.iterrows():
+        transaction_id = row['transaction_id']
+        
+        # Check if transaction already exists
+        existing = db.query(Transaction).filter(Transaction.transaction_id == transaction_id).first()
+        if existing:
+            skipped_count += 1
+            continue
+        
         txn = Transaction(
-            transaction_id=row['transaction_id'],
+            transaction_id=transaction_id,
             date=pd.to_datetime(row['date']).date(),
             fiscal_year=row['fiscal_year'],
             quarter=row['quarter'],
@@ -27,7 +38,10 @@ def bulk_insert_transactions(db: Session):
             predicted_category=row.get('predicted_category')
         )
         db.add(txn)
+        new_count += 1
+    
     db.commit()
+    print(f"Inserted {new_count} new transactions, skipped {skipped_count} duplicates")
     return True
 
 def get_transactions(db: Session, skip: int = 0, limit: int = 50, department=None, category=None, anomaly=None):

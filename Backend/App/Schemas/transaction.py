@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+﻿from pydantic import BaseModel
 from datetime import date
 from typing import Optional
 
@@ -17,3 +17,21 @@ class TransactionResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class SingleExpenseInput(BaseModel):
+    department: Optional[str] = None
+    expense_category: Optional[str] = None
+    vendor_name: Optional[str] = None
+    transaction_description: str
+    amount_pkr: float
+    payment_method: Optional[str] = None
+    approval_status: Optional[str] = "Pending"
+    fiscal_year: int
+    quarter: int
+    current_assets_pkr: float
+    current_liabilities_pkr: float
+    fixed_assets_pkr: float
+    total_assets_pkr: float
+    total_liabilities_pkr: float
+    long_term_loans_pkr: float
+    quarterly_revenue_pkr: float
