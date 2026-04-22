@@ -1,49 +1,168 @@
 from sqlalchemy.orm import Session
 from Models.transactions import Transaction
 from Models.quarterly import QuarterlySummary
+from sqlalchemy import func
+from datetime import datetime
 
 def get_dashboard_data(db: Session):
+    """
+    Comprehensive dashboard data for financial analytics.
+    Adapted to work with transaction and quarterly summary data.
+    """
+    
+    # Get latest quarter (with null safety)
     latest_quarter = db.query(QuarterlySummary)\
         .order_by(QuarterlySummary.fiscal_year.desc(), QuarterlySummary.quarter.desc())\
         .first()
     
-    total_expense = db.query(Transaction.amount_pkr).all()
-    total_expense_sum = sum([float(t[0]) for t in total_expense]) if total_expense else 0.0
+    # Count total transactions
+    total_transactions = db.query(Transaction).count()
+    
+    # Calculate total and average expenses
+    expense_stats = db.query(
+        func.sum(Transaction.amount_pkr).label("total"),
+        func.avg(Transaction.amount_pkr).label("average"),
+        func.count(Transaction.id).label("count")
+    ).first()
+    
+    total_expense = float(expense_stats.total) if expense_stats.total else 0.0
+    avg_expense = float(expense_stats.average) if expense_stats.average else 0.0
 
+    # Count anomalies
     anomaly_count = db.query(Transaction)\
         .filter(Transaction.is_anomaly == True).count()
+    
+    anomaly_rate = (anomaly_count / total_transactions * 100) if total_transactions > 0 else 0.0
 
+    # Get recent transactions (with proper dict conversion)
     recent_transactions = db.query(Transaction)\
         .order_by(Transaction.date.desc())\
-        .limit(5).all()
+        .limit(10).all()
+    
+    recent_txn_list = []
+    for t in recent_transactions:
+        recent_txn_list.append({
+            "transaction_id": t.transaction_id,
+            "date": str(t.date) if t.date else None,
+            "description": t.transaction_description,
+            "category": t.expense_category,
+            "amount": float(t.amount_pkr),
+            "status": t.approval_status,
+            "is_anomaly": t.is_anomaly,
+            "department": t.department
+        })
 
+    # Spending by category
     spending_by_category = db.query(
         Transaction.expense_category,
-        db.func.sum(Transaction.amount_pkr).label("amount")
+        func.sum(Transaction.amount_pkr).label("amount"),
+        func.count(Transaction.id).label("count")
     ).group_by(Transaction.expense_category)\
-     .order_by(db.func.sum(Transaction.amount_pkr).desc())\
-     .limit(6).all()
+     .order_by(func.sum(Transaction.amount_pkr).desc())\
+     .all()
 
     spending_list = [
-        {"category": cat, "amount": float(amt)} 
-        for cat, amt in spending_by_category
+        {
+            "category": cat or "Uncategorized", 
+            "amount": float(amt),
+            "count": int(cnt)
+        } 
+        for cat, amt, cnt in spending_by_category
+    ]
+
+    # Spending by department
+    spending_by_department = db.query(
+        Transaction.department,
+        func.sum(Transaction.amount_pkr).label("amount")
+    ).group_by(Transaction.department)\
+     .order_by(func.sum(Transaction.amount_pkr).desc())\
+     .all()
+
+    dept_list = [
+        {
+            "department": dept or "Unassigned",
+            "amount": float(amt)
+        }
+        for dept, amt in spending_by_department
+    ]
+
+    # Risk timeline from quarterly summaries
+    all_quarters = db.query(QuarterlySummary)\
+        .order_by(QuarterlySummary.fiscal_year, QuarterlySummary.quarter)\
+        .all()
+    
+    risk_timeline = [
+        {
+            "fiscal_year": q.fiscal_year,
+            "quarter": q.quarter,
+            "risk_band": q.risk_band or "Unknown",
+            "predicted_band": q.predicted_band or q.risk_band,
+            "confidence": float(q.confidence) if q.confidence else 0.0,
+            "current_ratio": float(q.current_ratio) if q.current_ratio else 0.0,
+            "debt_to_asset": float(q.debt_to_asset) if q.debt_to_asset else 0.0,
+            "expense_to_revenue": float(q.expense_to_revenue) if q.expense_to_revenue else 0.0,
+            "anomaly_rate": float(q.anomaly_rate) if q.anomaly_rate else 0.0
+        }
+        for q in all_quarters
+    ]
+
+    # Anomaly breakdown by category
+    anomaly_by_category = db.query(
+        Transaction.expense_category,
+        func.count(Transaction.id).label("count")
+    ).filter(Transaction.is_anomaly == True)\
+     .group_by(Transaction.expense_category)\
+     .order_by(func.count(Transaction.id).desc())\
+     .all()
+
+    anomaly_list = [
+        {
+            "category": cat or "Uncategorized",
+            "count": int(cnt)
+        }
+        for cat, cnt in anomaly_by_category
+    ]
+
+    # Approval status breakdown
+    approval_stats = db.query(
+        Transaction.approval_status,
+        func.count(Transaction.id).label("count"),
+        func.sum(Transaction.amount_pkr).label("amount")
+    ).group_by(Transaction.approval_status)\
+     .all()
+
+    approval_list = [
+        {
+            "status": status or "Unknown",
+            "count": int(cnt),
+            "amount": float(amt) if amt else 0.0
+        }
+        for status, cnt, amt in approval_stats
     ]
 
     return {
-        "current_ratio": float(latest_quarter.current_ratio) if latest_quarter else 1.62,
-        "debt_ratio": float(latest_quarter.debt_to_asset) if latest_quarter else 0.48,
-        "risk_band": latest_quarter.risk_band if latest_quarter else "Low",
-        "total_expense": round(total_expense_sum, 2),
-        "anomaly_count": anomaly_count,
-        "active_users": 1240,
+        "overview": {
+            "total_expense": round(total_expense, 2),
+            "average_expense": round(avg_expense, 2),
+            "total_transactions": total_transactions,
+            "anomaly_count": anomaly_count,
+            "anomaly_rate": round(anomaly_rate, 2)
+        },
+        "financial_ratios": {
+            "current_ratio": float(latest_quarter.current_ratio) if latest_quarter and latest_quarter.current_ratio else 0.0,
+            "debt_to_asset": float(latest_quarter.debt_to_asset) if latest_quarter and latest_quarter.debt_to_asset else 0.0,
+            "expense_to_revenue": float(latest_quarter.expense_to_revenue) if latest_quarter and latest_quarter.expense_to_revenue else 0.0
+        },
+        "risk_assessment": {
+            "risk_band": latest_quarter.risk_band if latest_quarter else "Unknown",
+            "predicted_band": latest_quarter.predicted_band if latest_quarter else "Unknown",
+            "confidence": float(latest_quarter.confidence) if latest_quarter and latest_quarter.confidence else 0.0,
+            "hmm_state": latest_quarter.hmm_state if latest_quarter else "Unknown"
+        },
         "spending_by_category": spending_list,
-        "risk_timeline": [
-            {
-                "fiscal_year": q.fiscal_year,
-                "quarter": q.quarter,
-                "risk_band": q.risk_band,
-                "confidence": float(q.confidence)
-            } for q in db.query(QuarterlySummary).order_by(QuarterlySummary.fiscal_year, QuarterlySummary.quarter).all()
-        ],
-        "recent_transactions": [t.__dict__ for t in recent_transactions]
+        "spending_by_department": dept_list,
+        "approval_breakdown": approval_list,
+        "anomaly_by_category": anomaly_list,
+        "risk_timeline": risk_timeline,
+        "recent_transactions": recent_txn_list
     }

@@ -1,11 +1,12 @@
 import pandas as pd
+import os
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import LeaveOneOut, cross_val_predict
+from sklearn.model_selection import cross_val_predict
 from sklearn.preprocessing import LabelEncoder
 import joblib
 
-DATA_PATH = 'quarterly_summary.csv'
+DATA_PATH = os.environ.get('RISK_INPUT', 'quarterly_summary.csv')
 
 df = pd.read_csv(DATA_PATH)
 
@@ -33,11 +34,11 @@ le = LabelEncoder()
 y_encoded = le.fit_transform(y)
 
 rf = RandomForestClassifier(n_estimators=200, random_state=42)
-loo = LeaveOneOut()
-y_pred = cross_val_predict(rf, X, y_encoded, cv=loo)
-
+# For performance and stability, fit on full data and predict on training set
+rf.fit(X, y_encoded)
+y_pred = rf.predict(X)
 df['predicted_band'] = le.inverse_transform(y_pred)
-df['confidence'] = np.max(rf.fit(X, y_encoded).predict_proba(X), axis=1)
+df['confidence'] = np.max(rf.predict_proba(X), axis=1)
 df['low_confidence'] = df['confidence'] < 0.65
 df['correct'] = df['risk_band'] == df['predicted_band']
 

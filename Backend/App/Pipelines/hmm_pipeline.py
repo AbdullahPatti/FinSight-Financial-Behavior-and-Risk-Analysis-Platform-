@@ -1,12 +1,13 @@
 import pandas as pd
+import os
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from hmmlearn.hmm import GaussianHMM
 import joblib
 
-DATASET_PATH = 'NovaTech.csv'
-OUTPUT_PATH = 'NovaTech_HMM.csv'
-QUARTERLY_PATH = 'quarterly_summary.csv'
+DATASET_PATH = os.environ.get('INPUT_CSV', 'NovaTech.csv')
+OUTPUT_PATH = os.environ.get('HMM_OUTPUT', 'NovaTech_HMM.csv')
+QUARTERLY_PATH = os.environ.get('QUARTERLY_OUTPUT', 'quarterly_summary.csv')
 MODEL_PATH = 'hmm_model.pkl'
 SCALER_PATH = 'hmm_scaler.pkl'
 
