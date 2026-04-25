@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Upload,
   FileText,
@@ -12,32 +12,12 @@ import {
   Calendar,
   Tag,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
-import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
 import { motion, AnimatePresence } from "motion/react";
 import "../styles/expenses.css";
 
 const BASE_URL = "http://localhost:8000";
-
-const COLORS = {
-  primary:   "#0d9488",
-  secondary: "#10b981",
-  accent:    "#059669",
-  gold:      "#d97706",
-  danger:    "#ef4444",
-  info:      "#06b6d4",
-};
 
 const uploadedFiles = [
   { id: 1, name: "expenses_january.csv",  status: "processed",  date: "Feb 15, 2026", rows: 234 },
@@ -45,184 +25,261 @@ const uploadedFiles = [
   { id: 3, name: "transactions_q1.csv",   status: "processing", date: "Feb 28, 2026", rows: 456 },
 ];
 
-const transactions = [
-  { id: "EXP-001", date: "2026-02-28", description: "Office Supplies",     category: "Office",    amount: 245.50,  status: "completed" },
-  { id: "EXP-002", date: "2026-02-27", description: "Software Subscription", category: "Software", amount: 99.00,   status: "completed" },
-  { id: "EXP-003", date: "2026-02-27", description: "Client Dinner",        category: "Meals",     amount: 156.80,  status: "completed" },
-  { id: "EXP-004", date: "2026-02-26", description: "Marketing Campaign",   category: "Marketing", amount: 1250.00, status: "completed" },
-  { id: "EXP-005", date: "2026-02-26", description: "Travel Expenses",      category: "Travel",    amount: 450.00,  status: "pending"   },
-  { id: "EXP-006", date: "2026-02-25", description: "Office Rent",          category: "Rent",      amount: 2500.00, status: "completed" },
-  { id: "EXP-007", date: "2026-02-24", description: "Utilities",            category: "Utilities", amount: 180.30,  status: "completed" },
-  { id: "EXP-008", date: "2026-02-23", description: "Freelancer Payment",   category: "Services",  amount: 800.00,  status: "completed" },
-];
-
-const monthlyExpenses = [
-  { month: "Sep", amount: 4200 },
-  { month: "Oct", amount: 5100 },
-  { month: "Nov", amount: 4800 },
-  { month: "Dec", amount: 6200 },
-  { month: "Jan", amount: 5500 },
-  { month: "Feb", amount: 4900 },
-];
-
-const weeklyExpenses = [
-  { week: "Week 1", amount: 1200 },
-  { week: "Week 2", amount: 980  },
-  { week: "Week 3", amount: 1450 },
-  { week: "Week 4", amount: 1270 },
-];
-
-const categoryData = [
-  { category: "Rent & Utilities", amount: 2800, color: COLORS.primary   },
-  { category: "Marketing",        amount: 1450, color: COLORS.gold       },
-  { category: "Office & Supplies", amount: 1200, color: COLORS.secondary },
-  { category: "Services",         amount: 900,  color: COLORS.info       },
-  { category: "Software & Tools", amount: 890,  color: COLORS.accent     },
-  { category: "Travel",           amount: 650,  color: COLORS.danger     },
-];
-
-const SUMMARY_STATS = [
-  { label: "Total Expenses",   value: "$7,681",  icon: DollarSign,   color: "text-teal-700",  bg: "from-teal-50 to-emerald-50" },
-  { label: "This Month",       value: "$4,900",  icon: Calendar,     color: "text-emerald-700", bg: "from-emerald-50 to-green-50" },
-  { label: "Largest Category", value: "$2,800",  icon: Tag,          color: "text-amber-700",  bg: "from-amber-50 to-yellow-50"  },
-  { label: "Trend",            value: "−7.3%",   icon: TrendingDown, color: "text-green-700",  bg: "from-green-50 to-lime-50"   },
-];
-
-function CustomTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white border-2 border-slate-200 rounded-xl shadow-xl p-3 font-serif">
-      <p className="font-semibold text-slate-900 mb-1">{label}</p>
-      {payload.map((e, i) => (
-        <p key={i} className="text-sm" style={{ color: e.color }}>
-          {e.name}: <span className="font-semibold">${e.value?.toLocaleString()}</span>
-        </p>
-      ))}
-    </div>
-  );
-}
-
 function FileStatusBadge({ status }) {
-  if (status === "processed") {
+  if (status === "processed")
     return (
       <span className="file-status file-status-processed">
-        <CheckCircle2 className="size-3.5" />
-        Processed
+        <CheckCircle2 className="size-3.5" /> Processed
       </span>
     );
-  }
-  if (status === "processing") {
+  if (status === "processing")
     return (
       <span className="file-status file-status-processing">
-        <Loader2 className="size-3.5 processing-spinner" />
-        Processing…
+        <Loader2 className="size-3.5 processing-spinner" /> Processing…
       </span>
     );
-  }
   return (
     <span className="file-status" style={{ background: "#fef2f2", color: "#991b1b", border: "1px solid #fca5a5" }}>
-      <XCircle className="size-3.5" />
-      Failed
+      <XCircle className="size-3.5" /> Failed
     </span>
   );
 }
 
-function TxnStatusBadge({ status }) {
-  if (status === "completed") return (
-    <span className="inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">Completed</span>
-  );
+function StatusBadge({ status }) {
+  const map = {
+    Approved: "inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200",
+    approved: "inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200",
+    Pending:  "inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200",
+    pending:  "inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200",
+    Rejected: "inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-50 text-red-800 border border-red-200",
+    rejected: "inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-50 text-red-800 border border-red-200",
+  };
+  return <span className={map[status] || map.pending}>{status}</span>;
+}
+
+function Spinner() {
   return (
-    <span className="inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">Pending</span>
+    <div className="flex items-center justify-center h-40">
+      <div className="size-8 border-4 border-teal-300 border-t-teal-600 rounded-full animate-spin" />
+    </div>
   );
 }
 
 export default function ExpensesPage() {
-  const [dragOver, setDragOver]           = useState(false);
-  const [selectedCategory, setCategory]   = useState("all");
-  const [files, setFiles]                 = useState(uploadedFiles);
-  const fileInputRef                      = useRef(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [files, setFiles]       = useState(uploadedFiles);
+  const fileInputRef            = useRef(null);
+
+  // Transaction state
+  const [transactions, setTransactions] = useState([]);
+  const [txnLoading, setTxnLoading]     = useState(true);
+  const [txnError, setTxnError]         = useState(null);
+
+  // Filters
+  const [anomalyFilter, setAnomalyFilter] = useState("all"); // "all" | "yes" | "no"
+  const [statusFilter, setStatusFilter]   = useState("all");
+  const [search, setSearch]               = useState("");
+
+  // Add Expense Model State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [formData, setFormData] = useState({
+    department: "",
+    expense_category: "",
+    vendor_name: "",
+    transaction_description: "",
+    amount_pkr: "",
+    payment_method: "Cash",
+    approval_status: "Pending",
+    fiscal_year: new Date().getFullYear(),
+    quarter: Math.floor((new Date().getMonth() + 3) / 3)
+  });
+  const [analysisResult, setAnalysisResult] = useState(null);
+
+  // Dashboard overview for summary cards
+  const [overview, setOverview] = useState(null);
+
+  useEffect(() => {
+    // Fetch dashboard for overview stats
+    fetch(`${BASE_URL}/dashboard/`)
+      .then(async (r) => {
+        const text = await r.text();
+        return JSON.parse(text);
+      })
+      .then((d) => setOverview(d.overview))
+      .catch(() => {});
+
+    // Fetch transactions (limit 50, sorted by date desc)
+    fetch(`${BASE_URL}/transactions/?limit=50`)
+      .then(async (r) => {
+        const text = await r.text();
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        try { return JSON.parse(text); }
+        catch { throw new Error("Non-JSON response: " + text.slice(0, 200)); }
+      })
+      .then((d) => {
+        // Strip SQLAlchemy internal keys
+        const clean = (d.transactions || []).map((t) => {
+          const { _sa_instance_state, ...rest } = t;
+          return rest;
+        });
+        setTransactions(clean);
+        setTxnLoading(false);
+      })
+      .catch((e) => { setTxnError(e.message); setTxnLoading(false); });
+  }, []);
+
+  // ── Upload handlers ────────────────────────────────────────────
 
   const uploadCsvFile = async (file) => {
     let rowCount = 0;
     try {
       const text = await file.text();
-      rowCount = Math.max(
-        text.split(/\r?\n/).filter((line) => line.trim()).length - 1,
-        0
-      );
-    } catch {
-      rowCount = 0;
-    }
+      rowCount = Math.max(text.split(/\r?\n/).filter((l) => l.trim()).length - 1, 0);
+    } catch { rowCount = 0; }
 
     const fileId = Date.now() + Math.random();
-    const newFile = {
-      id: fileId,
-      name: file.name,
-      status: "processing",
-      date: new Date().toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
+    setFiles((prev) => [{
+      id: fileId, name: file.name, status: "processing",
+      date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
       rows: rowCount,
-    };
-
-    setFiles((prev) => [newFile, ...prev]);
+    }, ...prev]);
 
     const formData = new FormData();
     formData.append("file", file);
-
     try {
-      const res = await fetch(`${BASE_URL}/upload/`, {
-        method: "POST",
-        body: formData,
-      });
-
+      const res  = await fetch(`${BASE_URL}/upload/`, { method: "POST", body: formData });
       const data = await res.json().catch(() => ({}));
-      const uploadSucceeded = res.ok && data?.status === "success";
-
+      const ok   = res.ok && data?.status === "success";
       setFiles((prev) =>
-        prev.map((item) =>
-          item.id === fileId
-            ? { ...item, status: uploadSucceeded ? "processed" : "failed" }
-            : item
-        )
+        prev.map((item) => item.id === fileId ? { ...item, status: ok ? "processed" : "failed" } : item)
       );
+      if (ok) {
+        // Refresh transactions after successful upload
+        fetch(`${BASE_URL}/transactions/?limit=50`)
+          .then((r) => r.json())
+          .then((d) => {
+            const clean = (d.transactions || []).map(({ _sa_instance_state, ...rest }) => rest);
+            setTransactions(clean);
+          })
+          .catch(() => {});
+      }
     } catch {
       setFiles((prev) =>
-        prev.map((item) =>
-          item.id === fileId ? { ...item, status: "failed" } : item
-        )
+        prev.map((item) => item.id === fileId ? { ...item, status: "failed" } : item)
       );
     }
   };
 
   const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     setDragOver(e.type === "dragenter" || e.type === "dragover");
   };
 
   const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     setDragOver(false);
-    const dropped = Array.from(e.dataTransfer.files).filter((f) =>
-      f.name.toLowerCase().endsWith(".csv")
-    );
-    if (dropped.length) {
-      dropped.forEach((file) => {
-        uploadCsvFile(file);
+    Array.from(e.dataTransfer.files)
+      .filter((f) => f.name.toLowerCase().endsWith(".csv"))
+      .forEach(uploadCsvFile);
+  };
+
+  // ── Filtering ──────────────────────────────────────────────────
+
+  const filtered = transactions.filter((t) => {
+    if (anomalyFilter === "yes" && !t.is_anomaly) return false;
+    if (anomalyFilter === "no"  &&  t.is_anomaly) return false;
+    if (statusFilter !== "all"  && (t.approval_status || "").toLowerCase() !== statusFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const hit = (t.transaction_description || "").toLowerCase().includes(q)
+        || (t.expense_category || "").toLowerCase().includes(q)
+        || (t.department || "").toLowerCase().includes(q)
+        || (t.transaction_id || "").toLowerCase().includes(q);
+      if (!hit) return false;
+    }
+    return true;
+  });
+
+  // ── CSV Export ─────────────────────────────────────────────────
+
+  const exportCSV = () => {
+    window.location.href = `${BASE_URL}/transactions/export-anomalies`;
+  };
+
+  const handleAddExpense = async (e) => {
+    e.preventDefault();
+    setIsAnalyzing(true);
+    setAnalysisResult(null);
+
+    try {
+      const payload = {
+        ...formData,
+        amount_pkr: parseFloat(formData.amount_pkr),
+        fiscal_year: parseInt(formData.fiscal_year),
+        quarter: parseInt(formData.quarter)
+      };
+
+      const res = await fetch(`${BASE_URL}/upload/single`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
       });
+
+      const result = await res.json();
+      if (res.ok && !result.error) {
+        setAnalysisResult(result);
+        // Add pseudo-transaction to the list for immediate feedback
+        const newTxn = {
+          transaction_id: `TMP-${Date.now()}`,
+          date: new Date().toISOString().split('T')[0],
+          ...payload,
+          expense_category: result.predicted_category || payload.expense_category,
+          is_anomaly: result.is_anomaly,
+          hmm_state: result.hmm_state,
+          review_tier: result.is_anomaly ? "High — review now" : "Normal"
+        };
+        setTransactions(prev => [newTxn, ...prev]);
+      } else {
+        alert("Analysis failed: " + (result.error || "Unknown error"));
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
-  const filteredTxns =
-    selectedCategory === "all"
-      ? transactions
-      : transactions.filter(
-          (t) => t.category.toLowerCase() === selectedCategory
-        );
+  // ── Summary cards ─────────────────────────────────────────────
+
+  const anomalyCount = transactions.filter((t) => t.is_anomaly).length;
+  const totalPKR     = transactions.reduce((s, t) => s + (t.amount_pkr || 0), 0);
+  const avgPKR       = transactions.length ? totalPKR / transactions.length : 0;
+
+  const SUMMARY_STATS = [
+    {
+      label: "Total Expenses",
+      value: overview
+        ? `PKR ${(overview.total_expense / 1_000_000).toFixed(1)}M`
+        : `PKR ${(totalPKR / 1_000_000).toFixed(1)}M`,
+      icon: DollarSign, color: "text-teal-700", bg: "from-teal-50 to-emerald-50",
+    },
+    {
+      label: "Transactions Loaded",
+      value: (overview?.total_transactions ?? transactions.length).toLocaleString(),
+      icon: Calendar, color: "text-emerald-700", bg: "from-emerald-50 to-green-50",
+    },
+    {
+      label: "Avg Transaction",
+      value: `PKR ${Math.round(overview?.average_expense ?? avgPKR).toLocaleString()}`,
+      icon: Tag, color: "text-amber-700", bg: "from-amber-50 to-yellow-50",
+    },
+    {
+      label: "Anomaly Rate",
+      value: overview ? `${overview.anomaly_rate}%` : `${((anomalyCount / (transactions.length || 1)) * 100).toFixed(1)}%`,
+      icon: TrendingDown, color: "text-red-700", bg: "from-red-50 to-rose-50",
+    },
+  ];
 
   return (
     <div className="space-y-8 page-typography font-body">
@@ -233,10 +290,13 @@ export default function ExpensesPage() {
           <div>
             <h1 className="text-4xl mb-2 text-slate-900">Expenses</h1>
             <p className="text-slate-600 text-lg">
-              Manage, upload, and analyze your business expenses
+              Manage, upload, and analyze your business transactions
             </p>
           </div>
-          <button className="add-expense-btn px-5 py-3 rounded-xl flex items-center gap-2 text-sm font-medium shadow-lg">
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="add-expense-btn px-5 py-3 rounded-xl flex items-center gap-2 text-sm font-medium shadow-lg"
+          >
             <Plus className="size-4" />
             Add Expense
           </button>
@@ -263,7 +323,6 @@ export default function ExpensesPage() {
           <p className="text-slate-500">Import transaction data directly from your spreadsheets</p>
         </div>
 
-        {/* Drop zone */}
         <div
           className={`drop-zone ${dragOver ? "drag-over" : ""}`}
           onDragEnter={handleDrag}
@@ -278,30 +337,21 @@ export default function ExpensesPage() {
             accept=".csv"
             className="hidden"
             onChange={(e) => {
-              const selectedFiles = Array.from(e.target.files || []).filter((f) =>
-                f.name.toLowerCase().endsWith(".csv")
-              );
-              selectedFiles.forEach((file) => {
-                uploadCsvFile(file);
-              });
+              Array.from(e.target.files || [])
+                .filter((f) => f.name.toLowerCase().endsWith(".csv"))
+                .forEach(uploadCsvFile);
               e.target.value = "";
             }}
           />
-          <div
-            className={`upload-icon-animate inline-flex p-5 rounded-2xl mb-5 ${
-              dragOver
-                ? "bg-teal-100 text-teal-600"
-                : "bg-slate-100 text-slate-400"
-            }`}
-          >
+          <div className={`upload-icon-animate inline-flex p-5 rounded-2xl mb-5 ${
+            dragOver ? "bg-teal-100 text-teal-600" : "bg-slate-100 text-slate-400"
+          }`}>
             <Upload className="size-10" />
           </div>
           <h3 className="text-xl text-slate-800 mb-2">
             {dragOver ? "Drop your CSV file here!" : "Drag & drop your CSV files"}
           </h3>
-          <p className="text-slate-500 text-sm mb-5">
-            or click to browse your files
-          </p>
+          <p className="text-slate-500 text-sm mb-5">or click to browse your files</p>
           <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 border-teal-200 text-teal-700 hover:bg-teal-50 transition-colors text-sm font-medium cursor-pointer">
             <Upload className="size-4" />
             Browse Files
@@ -310,193 +360,284 @@ export default function ExpensesPage() {
             Supported: CSV (max 10MB) · Transactions, expenses, invoices
           </p>
         </div>
+      </div>
 
-        {/* Uploaded files */}
-        <div className="mt-8">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg text-slate-900">Uploaded Files</h3>
-            <span className="text-sm text-slate-400">{files.length} files</span>
-          </div>
-          <AnimatePresence>
-            <div className="space-y-3">
-              {files.map((file) => (
-                <motion.div
-                  key={file.id}
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="file-item"
+      {/* Add Expense Modal */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-teal-50 to-white">
+                <div>
+                  <h2 className="text-2xl font-semibold text-slate-900">Add New Expense</h2>
+                  <p className="text-slate-500 text-sm">Enter transaction details for AI analysis</p>
+                </div>
+                <button 
+                  onClick={() => { setIsModalOpen(false); setAnalysisResult(null); }}
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
                 >
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="file-icon-wrap">
-                      <FileText className="size-5 text-teal-600" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">
-                        {file.name}
-                      </p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {file.rows > 0 ? `${file.rows} rows · ` : ""}
-                        Uploaded {file.date}
-                      </p>
-                    </div>
+                  <XCircle className="size-6 text-slate-400" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddExpense} className="p-8 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Department</label>
+                    <input
+                      required
+                      type="text"
+                      value={formData.department}
+                      onChange={(e) => setFormData({...formData, department: e.target.value})}
+                      placeholder="e.g. Marketing"
+                      className="w-full h-11 px-4 rounded-xl border-2 border-slate-100 focus:border-teal-300 outline-none transition-all"
+                    />
                   </div>
-                  <FileStatusBadge status={file.status} />
-                </motion.div>
-              ))}
-            </div>
-          </AnimatePresence>
-        </div>
-      </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Vendor Name</label>
+                    <input
+                      required
+                      type="text"
+                      value={formData.vendor_name}
+                      onChange={(e) => setFormData({...formData, vendor_name: e.target.value})}
+                      placeholder="e.g. AWS"
+                      className="w-full h-11 px-4 rounded-xl border-2 border-slate-100 focus:border-teal-300 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium text-slate-700">Transaction Description</label>
+                    <input
+                      required
+                      type="text"
+                      value={formData.transaction_description}
+                      onChange={(e) => setFormData({...formData, transaction_description: e.target.value})}
+                      placeholder="What was this for?"
+                      className="w-full h-11 px-4 rounded-xl border-2 border-slate-100 focus:border-teal-300 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Amount (PKR)</label>
+                    <input
+                      required
+                      type="number"
+                      value={formData.amount_pkr}
+                      onChange={(e) => setFormData({...formData, amount_pkr: e.target.value})}
+                      placeholder="0.00"
+                      className="w-full h-11 px-4 rounded-xl border-2 border-slate-100 focus:border-teal-300 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Payment Method</label>
+                    <select
+                      value={formData.payment_method}
+                      onChange={(e) => setFormData({...formData, payment_method: e.target.value})}
+                      className="w-full h-11 px-4 rounded-xl border-2 border-slate-100 focus:border-teal-300 outline-none transition-all appearance-none bg-white"
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="Cheque">Cheque</option>
+                      <option value="Online Portal">Online Portal</option>
+                      <option value="Corporate Card">Corporate Card</option>
+                    </select>
+                  </div>
+                </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {analysisResult && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`p-5 rounded-2xl border-2 ${analysisResult.is_anomaly ? 'bg-red-50 border-red-100' : 'bg-teal-50 border-teal-100'} space-y-3`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {analysisResult.is_anomaly ? (
+                          <AlertTriangle className="size-5 text-red-600" />
+                        ) : (
+                          <CheckCircle2 className="size-5 text-teal-600" />
+                        )}
+                        <span className={`font-semibold ${analysisResult.is_anomaly ? 'text-red-700' : 'text-teal-700'}`}>
+                          {analysisResult.is_anomaly ? 'Outlier Detected' : 'Normal Transaction'}
+                        </span>
+                      </div>
+                      <span className="text-xs font-bold px-2 py-1 rounded bg-white/50 text-slate-600 uppercase tracking-wider">
+                        Categorized as: {analysisResult.predicted_category}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      Score: <span className="font-mono font-bold">{analysisResult.anomaly_score.toFixed(4)}</span> | 
+                      State: <span className="font-semibold">{analysisResult.hmm_state}</span> | 
+                      Risk: <span className={`font-bold ${analysisResult.risk_band === 'High' ? 'text-red-600' : 'text-teal-600'}`}>{analysisResult.risk_band}</span>
+                    </p>
+                  </motion.div>
+                )}
 
-        {/* Monthly trend */}
-        <div className="expenses-chart-card bg-white rounded-2xl border-2 border-slate-200 p-8 shadow-lg">
-          <div className="mb-6">
-            <h2 className="text-2xl mb-1 text-slate-900">Monthly Expenses</h2>
-            <p className="text-slate-500">6-month spending trend</p>
+                <div className="flex gap-4 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => { setIsModalOpen(false); setAnalysisResult(null); }}
+                    className="flex-1 h-12 rounded-xl border-2 border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isAnalyzing}
+                    className="flex-1 h-12 rounded-xl bg-teal-600 text-white font-medium hover:bg-teal-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-teal-200 disabled:opacity-70"
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      'Analyze & Add'
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </div>
-          <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={monthlyExpenses}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="month" stroke="#94a3b8" axisLine={false} tickLine={false}
-                style={{ fontSize: "13px", fontFamily: "Crimson Pro, serif" }} />
-              <YAxis stroke="#94a3b8" axisLine={false} tickLine={false}
-                style={{ fontSize: "13px", fontFamily: "Crimson Pro, serif" }} />
-              <Tooltip content={<CustomTooltip />} />
-              <Line
-                type="monotone"
-                dataKey="amount"
-                stroke={COLORS.primary}
-                strokeWidth={3}
-                dot={{ fill: COLORS.primary, r: 5, strokeWidth: 2, stroke: "white" }}
-                activeDot={{ r: 7 }}
-                name="Expenses"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Weekly breakdown */}
-        <div className="expenses-chart-card bg-white rounded-2xl border-2 border-slate-200 p-8 shadow-lg">
-          <div className="mb-6">
-            <h2 className="text-2xl mb-1 text-slate-900">Weekly Breakdown</h2>
-            <p className="text-slate-500">February spending by week</p>
-          </div>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={weeklyExpenses}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="week" stroke="#94a3b8" axisLine={false} tickLine={false}
-                style={{ fontSize: "13px", fontFamily: "Crimson Pro, serif" }} />
-              <YAxis stroke="#94a3b8" axisLine={false} tickLine={false}
-                style={{ fontSize: "13px", fontFamily: "Crimson Pro, serif" }} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="amount" radius={[8, 8, 0, 0]} name="Amount">
-                {weeklyExpenses.map((_, i) => (
-                  <Cell
-                    key={i}
-                    fill={i === 2 ? COLORS.gold : COLORS.secondary}
-                    fillOpacity={i === 2 ? 1 : 0.8}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Category breakdown */}
-      <div className="expenses-chart-card bg-white rounded-2xl border-2 border-slate-200 p-8 shadow-lg">
-        <div className="mb-6">
-          <h2 className="text-2xl mb-1 text-slate-900">Expenses by Category</h2>
-          <p className="text-slate-500">Spending distribution across all business categories</p>
-        </div>
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={categoryData} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-            <XAxis type="number" stroke="#94a3b8" axisLine={false} tickLine={false}
-              style={{ fontSize: "13px", fontFamily: "Crimson Pro, serif" }} />
-            <YAxis dataKey="category" type="category" stroke="#94a3b8" width={140} axisLine={false} tickLine={false}
-              style={{ fontSize: "13px", fontFamily: "Crimson Pro, serif" }} />
-            <Tooltip content={<CustomTooltip />} />
-            <Bar dataKey="amount" radius={[0, 8, 8, 0]} name="Amount">
-              {categoryData.map((entry, i) => (
-                <Cell key={i} fill={entry.color} fillOpacity={0.85} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+        )}
+      </AnimatePresence>
 
       {/* Transactions Table */}
       <div className="bg-white rounded-2xl border-2 border-slate-200 p-8 shadow-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
           <div>
             <h2 className="text-2xl mb-1 text-slate-900">Recent Transactions</h2>
             <p className="text-slate-500">
-              {filteredTxns.length} transactions{" "}
-              {selectedCategory !== "all" ? `in ${selectedCategory}` : ""}
+              Showing {filtered.length} of {transactions.length} transactions
+              {anomalyFilter === "yes" && " · anomalies only"}
+              {anomalyFilter === "no"  && " · normal only"}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* Controls */}
+          <div className="flex flex-wrap items-center gap-3">
+
+            {/* Search */}
+            <input
+              type="text"
+              placeholder="Search…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-10 w-44 rounded-xl border-2 border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-teal-300"
+            />
+
+            {/* Anomaly filter */}
+            <div className="relative">
+              <AlertTriangle className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+              <select
+                value={anomalyFilter}
+                onChange={(e) => setAnomalyFilter(e.target.value)}
+                className="h-10 w-44 rounded-xl border-2 border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none focus:border-teal-300 appearance-none"
+              >
+                <option value="all">All Transactions</option>
+                <option value="yes">Anomalies Only</option>
+                <option value="no">Normal Only</option>
+              </select>
+            </div>
+
+            {/* Status filter */}
             <div className="relative">
               <Filter className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
               <select
-                value={selectedCategory}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-44 h-10 rounded-xl border-2 border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none focus:border-teal-300"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="h-10 w-40 rounded-xl border-2 border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none focus:border-teal-300 appearance-none"
               >
-                <option value="all">All Categories</option>
-                <option value="office">Office</option>
-                <option value="software">Software</option>
-                <option value="marketing">Marketing</option>
-                <option value="travel">Travel</option>
-                <option value="rent">Rent</option>
+                <option value="all">All Statuses</option>
+                <option value="approved">Approved</option>
+                <option value="pending">Pending</option>
+                <option value="rejected">Rejected</option>
               </select>
             </div>
-            <button className="inline-flex items-center gap-2 px-4 py-2.5 border-2 border-slate-200 rounded-xl text-slate-600 hover:text-teal-700 hover:border-teal-300 hover:bg-teal-50 transition-all text-sm font-medium">
+
+            {/* Export */}
+            <button
+              onClick={exportCSV}
+              className="inline-flex items-center gap-2 px-4 py-2.5 border-2 border-slate-200 rounded-xl text-slate-600 hover:text-teal-700 hover:border-teal-300 hover:bg-teal-50 transition-all text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+            >
               <Download className="size-4" />
-              Export
+              Export CSV
             </button>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b-2 border-slate-200 text-left text-xs text-slate-500 font-semibold uppercase tracking-wider">
-                <th className="pb-4">Date</th>
-                <th className="pb-4">Description</th>
-                <th className="pb-4">Category</th>
-                <th className="pb-4 text-right">Amount</th>
-                <th className="pb-4 text-right">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTxns.map((t) => (
-                <tr key={t.id} className="txn-row">
-                  <td className="py-4 text-slate-500 text-sm whitespace-nowrap">{t.date}</td>
-                  <td className="py-4">
-                    <p className="font-medium text-slate-900 text-sm">{t.description}</p>
-                    <p className="text-xs text-slate-400">{t.id}</p>
-                  </td>
-                  <td className="py-4">
-                    <span className="category-pill">{t.category}</span>
-                  </td>
-                  <td className="py-4 text-right">
-                    <span className="txn-amount-negative text-sm">
-                      −${t.amount.toFixed(2)}
-                    </span>
-                  </td>
-                  <td className="py-4 text-right">
-                    <TxnStatusBadge status={t.status} />
-                  </td>
+        {txnLoading ? (
+          <Spinner />
+        ) : txnError ? (
+          <pre className="text-red-500 text-sm whitespace-pre-wrap p-4 bg-red-50 rounded-xl">{txnError}</pre>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16 text-slate-400">
+            <AlertTriangle className="size-10 mx-auto mb-3 opacity-40" />
+            <p className="text-sm">No transactions match the current filters.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b-2 border-slate-200 text-left text-xs text-slate-500 font-semibold uppercase tracking-wider">
+                  <th className="pb-4">Transaction</th>
+                  <th className="pb-4">Date</th>
+                  <th className="pb-4">Department</th>
+                  <th className="pb-4">Category</th>
+                  <th className="pb-4 text-right">Amount (PKR)</th>
+                  <th className="pb-4 text-right">Status</th>
+                  <th className="pb-4 text-right">Anomaly</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((t, i) => (
+                  <tr
+                    key={t.transaction_id || i}
+                    className={`txn-row ${t.is_anomaly ? "bg-red-50/30" : ""} ${
+                      i < filtered.length - 1 ? "border-b border-slate-100" : ""
+                    }`}
+                  >
+                    <td className="py-4">
+                      <p className="font-medium text-slate-900 text-sm truncate max-w-[200px]">
+                        {t.transaction_description || "—"}
+                      </p>
+                      <p className="text-xs text-slate-400">{t.transaction_id}</p>
+                    </td>
+                    <td className="py-4 text-slate-500 text-sm whitespace-nowrap">
+                      {t.date ? String(t.date).slice(0, 10) : "—"}
+                    </td>
+                    <td className="py-4 text-slate-600 text-sm">{t.department || "—"}</td>
+                    <td className="py-4">
+                      {t.expense_category
+                        ? <span className="category-pill">{t.expense_category}</span>
+                        : <span className="text-slate-400 text-sm">—</span>
+                      }
+                    </td>
+                    <td className="py-4 text-right font-semibold text-slate-900 text-sm whitespace-nowrap">
+                      {(t.amount_pkr || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </td>
+                    <td className="py-4 text-right">
+                      <StatusBadge status={t.approval_status} />
+                    </td>
+                    <td className="py-4 text-right">
+                      {t.is_anomaly ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                          <AlertTriangle className="size-3" /> Yes
+                        </span>
+                      ) : (
+                        <span className="inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-50 text-slate-500 border border-slate-200">
+                          No
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

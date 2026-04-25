@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   CheckCircle,
   TrendingDown,
-  ArrowUpRight,
   Activity,
   Building2,
   Tag,
@@ -82,32 +81,6 @@ function renderLegend({ payload }) {
   );
 }
 
-function StatusBadge({ status }) {
-  const map = {
-    Approved:  "status-badge status-badge-completed",
-    Pending:   "status-badge status-badge-pending",
-    Rejected:  "status-badge status-badge-failed",
-    approved:  "status-badge status-badge-completed",
-    pending:   "status-badge status-badge-pending",
-    rejected:  "status-badge status-badge-failed",
-  };
-  return (
-    <span className={map[status] || "status-badge status-badge-pending"}>
-      {status}
-    </span>
-  );
-}
-
-function RiskBadge({ band }) {
-  const map = {
-    Low:      "status-badge status-badge-completed",
-    Medium:   "status-badge status-badge-pending",
-    High:     "status-badge status-badge-open",
-    Critical: "status-badge status-badge-failed",
-    Unknown:  "status-badge status-badge-progress",
-  };
-  return <span className={map[band] || "status-badge status-badge-pending"}>{band}</span>;
-}
 
 function Spinner() {
   return (
@@ -366,7 +339,17 @@ export default function DashboardPage() {
               <YAxis type="category" dataKey="department" stroke="#94a3b8" axisLine={false}
                 tickLine={false} width={110} style={{ fontSize: "11px" }} />
               <Tooltip formatter={(v) => [`PKR ${v.toLocaleString()}`, "Amount"]} />
-              <Bar dataKey="amount" name="Amount (PKR)" fill={COLORS.primary} radius={[0, 6, 6, 0]} />
+              <Bar dataKey="amount" name="Amount (PKR)" radius={[0, 6, 6, 0]}>
+                {deptBar.map((_, i) => (
+                  <Cell
+                    key={i}
+                    fill={[
+                      "#0d9488", "#8b5cf6", "#d97706", "#06b6d4",
+                      "#10b981", "#ef4444", "#f59e0b", "#6366f1",
+                    ][i % 8]}
+                  />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -396,60 +379,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Recent Transactions */}
-      <div className="chart-card bg-white rounded-2xl border-2 border-slate-200 p-8 shadow-lg">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-2xl mb-1 text-slate-900">Recent Transactions</h2>
-            <p className="text-slate-500">Latest 10 transactions from the database</p>
-          </div>
-          <ArrowUpRight className="size-5 text-slate-400" />
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b-2 border-slate-200 text-left text-xs text-slate-500 font-semibold uppercase tracking-wider">
-                <th className="pb-4">Transaction</th>
-                <th className="pb-4">Category</th>
-                <th className="pb-4">Department</th>
-                <th className="pb-4 text-right">Amount (PKR)</th>
-                <th className="pb-4 text-right">Status</th>
-                <th className="pb-4 text-right">Anomaly</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recent_transactions.map((t, i) => (
-                <tr
-                  key={t.transaction_id}
-                  className={`data-table-row ${i < recent_transactions.length - 1 ? "border-b border-slate-100" : ""}`}
-                >
-                  <td className="py-4">
-                    <p className="font-semibold text-slate-900 text-sm truncate max-w-[180px]">
-                      {t.description || "—"}
-                    </p>
-                    <p className="text-xs text-slate-400">{t.transaction_id} · {t.date}</p>
-                  </td>
-                  <td className="py-4 text-slate-600 text-sm">{t.category || "—"}</td>
-                  <td className="py-4 text-slate-600 text-sm">{t.department || "—"}</td>
-                  <td className="py-4 text-right font-semibold text-slate-900 text-sm">
-                    {t.amount.toLocaleString()}
-                  </td>
-                  <td className="py-4 text-right">
-                    <StatusBadge status={t.status} />
-                  </td>
-                  <td className="py-4 text-right">
-                    {t.is_anomaly ? (
-                      <span className="status-badge status-badge-failed">⚠ Yes</span>
-                    ) : (
-                      <span className="status-badge status-badge-completed">✓ No</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   );
 }

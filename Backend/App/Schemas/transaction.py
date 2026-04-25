@@ -28,10 +28,10 @@ class SingleExpenseInput(BaseModel):
     approval_status: Optional[str] = "Pending"
     fiscal_year: int
     quarter: int
-    current_assets_pkr: float
-    current_liabilities_pkr: float
-    fixed_assets_pkr: float
-    total_assets_pkr: float
-    total_liabilities_pkr: float
-    long_term_loans_pkr: float
-    quarterly_revenue_pkr: float
+    current_assets_pkr: Optional[float] = None
+    current_liabilities_pkr: Optional[float] = None
+    fixed_assets_pkr: Optional[float] = None
+    total_assets_pkr: Optional[float] = None
+    total_liabilities_pkr: Optional[float] = None
+    long_term_loans_pkr: Optional[float] = None
+    quarterly_revenue_pkr: Optional[float] = None
