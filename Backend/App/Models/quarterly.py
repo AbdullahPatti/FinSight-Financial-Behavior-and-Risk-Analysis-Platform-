@@ -10,6 +10,8 @@ class QuarterlySummary(Base):
     debt_to_asset = Column(Float)
     expense_to_revenue = Column(Float)
     anomaly_rate = Column(Float)
+    quarterly_revenue = Column(Float)
+    long_term_loans = Column(Float)
     hmm_state = Column(String)
     risk_band = Column(String)
     predicted_band = Column(String)

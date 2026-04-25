@@ -31,6 +31,8 @@ def bulk_insert_quarterly(db: Session):
             debt_to_asset=float(row['debt_to_asset']),
             expense_to_revenue=float(row['expense_to_revenue']),
             anomaly_rate=float(row['anomaly_rate']),
+            quarterly_revenue=float(row['quarterly_revenue']),
+            long_term_loans=float(row['long_term_loans']),
             hmm_state=row['hmm_state'],
             risk_band=row['risk_band'],
             predicted_band=row['predicted_band'],
