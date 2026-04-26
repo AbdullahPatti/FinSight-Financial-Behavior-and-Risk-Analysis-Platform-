@@ -612,25 +612,4 @@ ALLOWED_HOSTS=localhost,127.0.0.1
 
 ---
 
-## 📝 Version History
-
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | Jan 2024 | Initial release |
-| 1.1 | Feb 2024 | HMM pipeline |
-| 1.2 | Mar 2024 | Dashboard UI |
-| 1.3 | Apr 2024 | CSV export |
-| 1.4 | May 2024 | NLP improvements |
-
----
-
-## 📞 Support
-
-**Technical Issues:**
-- Email: support@finsight.com
-- Documentation: This guide
-- API Docs: `http://localhost:8000/docs`
-
----
-
 *For updates or corrections, contact the development team.*
